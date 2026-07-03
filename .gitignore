@@ -1,0 +1,16 @@
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+dist/
+build/
+*.egg-info/
+
+# Local email samples and datasets
+datasets/
+samples/
+private-samples/
+reports/
+
+# Local secrets
+.env

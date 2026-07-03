@@ -5,12 +5,16 @@ __pycache__/
 dist/
 build/
 *.egg-info/
+mailguard.egg-info/
 
 # Local email samples and datasets
 datasets/
 samples/
 private-samples/
 reports/
+
+# Local generated reports
+report.json
 
 # Local secrets
 .env

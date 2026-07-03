@@ -26,6 +26,8 @@ class EmailInvestigation:
     return_path: str
     date: str
     message_id: str
+    authentication_results: list[str]
+    received_headers: list[str]
     text_body: str
     html_body: str
     links: list[str]
@@ -78,6 +80,8 @@ def parse_eml(file_path: str | Path) -> EmailInvestigation:
         return_path=message.get("return-path", ""),
         date=message.get("date", ""),
         message_id=message.get("message-id", ""),
+        authentication_results=message.get_all("authentication-results", []),
+        received_headers=message.get_all("received", []),
         text_body=text_body,
         html_body=html_body,
         links=links,

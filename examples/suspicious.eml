@@ -1,0 +1,50 @@
+Return-Path: <bounce@random-mailer.example>
+Received: from mail.random-mailer.example (mail.random-mailer.example [203.0.113.50])
+        by mx.example.co.uk with ESMTPS id abc123
+        for <employee@example.co.uk>;
+        Tue, 2 Jul 2026 10:15:00 +0000
+Authentication-Results: mx.example.co.uk;
+        spf=fail smtp.mailfrom=random-mailer.example;
+        dkim=none;
+        dmarc=fail header.from=example.co.uk
+From: Antonio Cesare <giulio.cesare@example.co.uk>
+Reply-To: Antonio Finance <antonio.cesare.finance@example.com>
+To: Employee <employee@example.co.uk>
+Subject: Urgent invoice payment update
+Date: Tue, 2 Jul 2026 10:14:30 +0000
+Message-ID: <123456789@random-mailer.example>
+MIME-Version: 1.0
+Content-Type: multipart/mixed; boundary="MAILGUARD-BOUNDARY"
+
+--MAILGUARD-BOUNDARY
+Content-Type: text/plain; charset="UTF-8"
+
+Hello,
+
+Please review the urgent invoice payment update.
+
+Open the secure payment portal here:
+https://example-payments.example-login.com/reset
+
+Regards,
+Antonio
+
+--MAILGUARD-BOUNDARY
+Content-Type: text/html; charset="UTF-8"
+
+<html>
+  <body>
+    <p>Hello,</p>
+    <p>Please review the urgent invoice payment update.</p>
+    <p><a href="https://example-payments.example-login.com/reset">Open company portal</a></p>
+    <img src="https://tracking.example.com/open/12345.png" />
+  </body>
+</html>
+
+--MAILGUARD-BOUNDARY
+Content-Type: application/pdf
+Content-Disposition: attachment; filename="invoice.pdf"
+
+Fake PDF content for testing only.
+
+--MAILGUARD-BOUNDARY--

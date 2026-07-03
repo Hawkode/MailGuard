@@ -12,6 +12,8 @@ def test_parse_sample_email():
     assert len(result.attachments) == 1
     assert result.attachments[0].filename == "invoice.pdf"
     assert len(result.attachments[0].sha256) == 64
+    assert len(result.received_ips) >= 1
+    assert result.received_ips[0].address == "203.0.113.50"
 
 
 def test_sample_email_has_high_risk_score():

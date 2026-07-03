@@ -5,6 +5,7 @@ from email import policy
 from email.parser import BytesParser
 from pathlib import Path
 from bs4 import BeautifulSoup
+from mailguard.headers import ReceivedIP, extract_received_ips
 import hashlib
 import re
 
@@ -29,6 +30,7 @@ class EmailInvestigation:
     message_id: str
     authentication_results: list[str]
     received_headers: list[str]
+    received_ips: list[ReceivedIP]
     text_body: str
     html_body: str
     links: list[str]
@@ -86,6 +88,7 @@ def parse_eml(file_path: str | Path) -> EmailInvestigation:
         message_id=message.get("message-id", ""),
         authentication_results=message.get_all("authentication-results", []),
         received_headers=message.get_all("received", []),
+        received_ips=extract_received_ips(message.get_all("received", [])),
         text_body=text_body,
         html_body=html_body,
         links=links,

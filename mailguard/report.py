@@ -24,6 +24,18 @@ def print_basic_report(result: EmailInvestigation) -> None:
     console.print(f"[bold]Return-Path:[/bold] {result.return_path or 'N/A'}")
     console.print(f"[bold]Date:[/bold] {result.date or 'N/A'}")
     console.print(f"[bold]Message-ID:[/bold] {result.message_id or 'N/A'}")
+    console.print()
+    console.print(f"[bold]Received header IPs:[/bold] {len(result.received_ips)}")
+
+    if result.received_ips:
+        ip_table = Table(title="Received Header IPs")
+        ip_table.add_column("IP address")
+        ip_table.add_column("Scope")
+
+        for received_ip in result.received_ips:
+            ip_table.add_row(received_ip.address, received_ip.scope)
+
+        console.print(ip_table)
 
     console.print()
     console.print("[bold]Findings:[/bold]")

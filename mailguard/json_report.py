@@ -26,6 +26,13 @@ def build_json_report(email: EmailInvestigation, source_file: str | Path | None 
         },
         "authentication_results": email.authentication_results,
         "received_headers": email.received_headers,
+        "received_ips": [
+           {
+               "address": received_ip.address,
+               "scope": received_ip.scope,
+           }
+           for received_ip in email.received_ips
+        ],
         "findings": [
             {
                 "points": finding.points,

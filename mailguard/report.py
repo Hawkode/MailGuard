@@ -55,12 +55,14 @@ def print_basic_report(result: EmailInvestigation) -> None:
         attachment_table.add_column("Filename")
         attachment_table.add_column("Content type")
         attachment_table.add_column("Size", justify="right")
+        attachment_table.add_column("SHA256")
 
         for attachment in result.attachments:
             attachment_table.add_row(
                 attachment.filename,
                 attachment.content_type,
                 f"{attachment.size_bytes} bytes",
+                attachment.sha256,
             )
 
         console.print(attachment_table)

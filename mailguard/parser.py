@@ -5,6 +5,7 @@ from email import policy
 from email.parser import BytesParser
 from pathlib import Path
 from bs4 import BeautifulSoup
+import hashlib
 import re
 
 
@@ -16,7 +17,7 @@ class AttachmentInfo:
     filename: str
     content_type: str
     size_bytes: int
-
+    sha256: str
 
 @dataclass
 class EmailInvestigation:
@@ -60,6 +61,7 @@ def parse_eml(file_path: str | Path) -> EmailInvestigation:
                     filename=part.get_filename() or "unknown",
                     content_type=content_type,
                     size_bytes=len(payload),
+                    sha256=hashlib.sha256(payload).hexdigest(),
                 )
             )
             continue

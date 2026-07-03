@@ -39,6 +39,7 @@ def build_json_report(email: EmailInvestigation, source_file: str | Path | None 
                 "filename": attachment.filename,
                 "content_type": attachment.content_type,
                 "size_bytes": attachment.size_bytes,
+                "sha256": attachment.sha256,
             }
             for attachment in email.attachments
         ],

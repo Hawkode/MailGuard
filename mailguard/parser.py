@@ -40,8 +40,10 @@ def parse_eml(file_path: str | Path) -> EmailInvestigation:
     if not path.exists():
         raise FileNotFoundError(f"Email file not found: {path}")
 
-    with path.open("rb") as file:
-        message = BytesParser(policy=policy.default).parse(file)
+    raw_bytes = path.read_bytes()
+    raw_bytes = remove_mbox_separator(raw_bytes)
+
+    message = BytesParser(policy=policy.default).parsebytes(raw_bytes)
 
     text_parts: list[str] = []
     html_parts: list[str] = []
@@ -63,10 +65,10 @@ def parse_eml(file_path: str | Path) -> EmailInvestigation:
             continue
 
         if content_type == "text/plain":
-            text_parts.append(part.get_content())
+            text_parts.append(get_part_content(part))
 
         if content_type == "text/html":
-            html_parts.append(part.get_content())
+            html_parts.append(get_part_content(part))
 
     text_body = "\n".join(text_parts).strip()
     html_body = "\n".join(html_parts).strip()
@@ -87,6 +89,27 @@ def parse_eml(file_path: str | Path) -> EmailInvestigation:
         links=links,
         attachments=attachments,
     )
+
+
+def remove_mbox_separator(raw_bytes: bytes) -> bytes:
+    """
+    Some public email datasets start messages with a Unix mbox separator line:
+    From sender@example.com Tue Jan 01 00:00:00 2002
+
+    That line is not a normal email header and can stop header parsing.
+    """
+    if raw_bytes.startswith(b"From "):
+        return raw_bytes.split(b"\n", 1)[1]
+
+    return raw_bytes
+
+
+def get_part_content(part) -> str:
+    try:
+        return part.get_content()
+    except LookupError:
+        payload = part.get_payload(decode=True) or b""
+        return payload.decode(errors="replace")
 
 
 def extract_links(text_body: str, html_body: str) -> list[str]:

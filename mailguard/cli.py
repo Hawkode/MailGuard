@@ -46,6 +46,7 @@ def scan_folder_command(folder: Path):
     console.print(f"[bold]High risk:[/bold] {result.high_risk}")
     console.print(f"[bold]Suspicious:[/bold] {result.suspicious}")
     console.print(f"[bold]Low risk:[/bold] {result.low_risk}")
+    console.print(f"[bold]Skipped:[/bold] {result.skipped}")
     console.print(f"[bold]Errors:[/bold] {result.errors}")
 
 if __name__ == "__main__":

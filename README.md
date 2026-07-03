@@ -1,53 +1,31 @@
 # MailGuard
 
-MailGuard is a defensive email investigation CLI for analysing suspicious `.eml` files.
+About the tool
 
-It extracts useful details from email headers, links, HTML content, and attachments. The tool is designed for safe phishing triage and does not open links, download remote content, or execute attachments.
+MailGuard is a defensive email investigation CLI for analysing suspicious email files.
 
-Status
+It extracts useful details from email headers, links, HTML content, attachments, authentication results, and received headers. It also gives a risk score to help with manual phishing triage.
 
-This project is in early development.
+The tool does not open links, visit websites, download remote content, execute attachments, or upload email content anywhere.
 
-Current version includes:
+Current features
 
-- `.eml` file parsing
-- Sender header extraction
-- Link extraction from text and HTML
-- Image URL detection from HTML
-- Attachment listing
-- Terminal report output
-- Synthetic sample email
-- Basic pytest coverage
+- Analyse a single email file
+- Scan a folder of email samples
+- Extract common headers
+- Extract links from plain text and HTML
+- Detect image URLs inside HTML emails
+- List attachments
+- Generate SHA256 hashes for attachments
+- Extract IP addresses from Received headers
+- Check SPF, DKIM, and DMARC results when present
+- Detect sender mismatch indicators
+- Detect suspicious keywords
+- Generate terminal reports
+- Generate JSON reports
+- Skip files that do not look like emails during folder scans
 
-Planned features:
-
-- Risk scoring
-- SPF, DKIM, and DMARC checks
-- Sender IP extraction from `Received` headers
-- Suspicious keyword detection
-- URL risk analysis
-- Attachment hashing
-- JSON report output
-- Markdown report output
-- GitHub Actions workflow
-
-Features
-
-MailGuard currently extracts:
-
-- `From`
-- `Reply-To`
-- `Return-Path`
-- `Date`
-- `Message-ID`
-- Links from plain text email bodies
-- Links from HTML email bodies
-- Image URLs from HTML emails
-- Attachment filename
-- Attachment content type
-- Attachment size
-
-Installation
+# Installation
 
 Clone the repository:
 
@@ -62,13 +40,13 @@ Create a virtual environment:
 py -m venv .venv
 ```
 
-Activate the virtual environment:
+Activate it:
 
 ```cmd
 .venv\Scripts\activate
 ```
 
-Install the project:
+Install the tool:
 
 ```cmd
 pip install -e .
@@ -80,7 +58,13 @@ Install test dependencies:
 pip install pytest
 ```
 
-Usage
+Check the tool:
+
+```cmd
+mailguard --help
+```
+
+# Usage
 
 Analyse the included sample email:
 
@@ -94,10 +78,31 @@ Alternative command:
 .venv\Scripts\python.exe -m mailguard.cli analyze examples\suspicious.eml
 ```
 
-Example output:
+Create a JSON report:
+
+```cmd
+mailguard analyze examples\suspicious.eml --json report.json
+```
+
+Scan a folder:
+
+```cmd
+mailguard scan-folder samples\spam\spam
+```
+
+Alternative folder scan command:
+
+```cmd
+.venv\Scripts\python.exe -m mailguard.cli scan-folder samples\spam\spam
+```
+
+Example single email output:
 
 ```text
 MailGuard Investigation Report
+
+Risk score: 95/100
+Verdict: High risk
 
 Subject: Urgent invoice payment update
 From: Giulio Cesare <giulio.cesare@example.co.uk>
@@ -106,82 +111,95 @@ Return-Path: <bounce@random-mailer.example>
 Date: Tue, 2 Jul 2026 10:14:30 +0000
 Message-ID: <123456789@random-mailer.example>
 
+Received header IPs: 1
+
+Findings:
+- SPF failed
+- DKIM missing
+- DMARC failed
+- Reply-To domain differs from From domain
+- Suspicious keyword found: urgent
+
 Links found: 2
 Attachments found: 1
 ```
 
-Testing
+Example folder scan output:
 
-Run the test suite:
+```text
+MailGuard Folder Scan Summary
+
+Scanned: 499
+High risk: 120
+Suspicious: 230
+Low risk: 149
+Skipped: 1
+Errors: 0
+```
+
+# Testing
+
+Run tests:
 
 ```cmd
 .venv\Scripts\python.exe -m pytest
 ```
 
-Expected result:
+Local files
+
+The repository does not include virtual environments, cache files, generated reports, or downloaded datasets.
+
+Ignored local paths:
 
 ```text
-1 passed
+.venv/
+.pytest_cache/
+__pycache__/
+mailguard.egg-info/
+datasets/
+samples/
+reports/
+report.json
 ```
+
+The repository includes one synthetic sample email:
+
+```text
+examples/suspicious.eml
+```
+
+Do not commit real emails, private reports, API keys, personal data, or downloaded phishing/spam datasets.
 
 Project structure
 
 ```text
-mailguard/
+MailGuard/
+├── examples/
+│   └── suspicious.eml
 ├── mailguard/
 │   ├── __init__.py
 │   ├── cli.py
+│   ├── folder_scan.py
+│   ├── headers.py
+│   ├── json_report.py
 │   ├── parser.py
-│   └── report.py
+│   ├── report.py
+│   └── scoring.py
 ├── tests/
 │   └── test_parser.py
-├── examples/
-│   └── suspicious.eml
+├── .gitignore
 ├── README.md
-├── pyproject.toml
-└── .gitignore
+└── pyproject.toml
 ```
 
-Safety
+Roadmap
 
-MailGuard does not:
-
-- Open URLs
-- Visit websites
-- Download remote images
-- Execute attachments
-- Upload email content anywhere
-
-Only synthetic sample emails should be committed to this repository.
-
-Do not commit:
-
-- Real emails
-- Private reports
-- API keys
-- Personal data
-- Live investigation files
-
-Troubleshooting
-
-If `mailguard` is not recognised, use:
-
-```cmd
-.venv\Scripts\python.exe -m mailguard.cli analyze examples\suspicious.eml
-```
-
-If tests do not run, install pytest again:
-
-```cmd
-.venv\Scripts\python.exe -m pip install pytest
-.venv\Scripts\python.exe -m pytest
-```
-
-If the email file is not found, check the sample folder:
-
-```cmd
-dir examples
-```
+- Markdown report output
+- CSV output for folder scans
+- Better URL scoring
+- Configurable rules
+- GitHub Actions test workflow
+- Optional reputation API checks
 
 Disclaimer
 

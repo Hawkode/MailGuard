@@ -1,0 +1,13 @@
+Return-Path: <bounces+123@em.mailer.example>
+Received: from o1.em.mailer.example (o1.em.mailer.example [198.51.100.77]) by mx.contoso.example; Mon, 14 Dec 2026 09:00:00 +0000
+Authentication-Results: mx.contoso.example; spf=pass smtp.mailfrom=em.mailer.example; dkim=pass header.d=vendor.example; dmarc=pass action=none header.from=vendor.example
+From: Vendor Ltd <news@vendor.example>
+To: alex@contoso.example
+Subject: Your account security update and December invoice summary
+Date: Mon, 14 Dec 2026 09:00:00 +0000
+Message-ID: <news-001@vendor.example>
+MIME-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+
+Your account accountant can view the December invoice and payment summary.
+Security tips: never share your password. Login at https://portal.vendor.example

@@ -8,6 +8,7 @@ import ipaddress
 import re
 
 
+from mailguard.auth import parse_authentication_results
 from mailguard.links import extract_bare_links, registered_domain
 from mailguard.unwrap import is_open_redirect, opaque_wrapper
 from mailguard.msverdict import CATEGORY_POINTS, describe_compauth_reason
@@ -170,22 +171,44 @@ def check_microsoft_verdict(email: EmailInvestigation, findings: list[Finding]) 
 
 
 def check_authentication(email: EmailInvestigation, findings: list[Finding]) -> None:
-    auth_text = " ".join(email.authentication_results).lower()
+    auth = parse_authentication_results(email.authentication_results)
+    from_domain = extract_email_domain(email.from_address)
+    verdict = email.microsoft_verdict
+    has_compauth = bool(verdict and verdict.compauth)
 
-    if not auth_text:
-        add_finding(findings, 10, "Authentication-Results header is missing")
+    if not auth.present:
+        add_finding(
+            findings,
+            10,
+            "Authentication-Results header is missing, so SPF, DKIM and DMARC could not be checked",
+        )
         return
 
-    if "spf=fail" in auth_text or "spf=softfail" in auth_text:
-        add_finding(findings, 20, "SPF failed")
+    if auth.dmarc == "fail":
+        action = f" (action: {auth.dmarc_action})" if auth.dmarc_action else ""
+        # compauth already scores the combined failure; DMARC adds the
+        # domain owner's explicit policy on top of it.
+        add_finding(findings, 10 if has_compauth else 25, f"DMARC failed for {from_domain}{action}")
 
-    if "dkim=fail" in auth_text:
-        add_finding(findings, 20, "DKIM failed")
-    elif "dkim=none" in auth_text:
-        add_finding(findings, 15, "DKIM missing")
+    # With compauth present, Microsoft has already combined SPF and DKIM
+    # into one verdict, so scoring them again would count the failure twice.
+    if has_compauth:
+        return
 
-    if "dmarc=fail" in auth_text:
-        add_finding(findings, 25, "DMARC failed")
+    if auth.spf == "fail":
+        add_finding(findings, 10, "SPF failed: the sending server is not authorised by the envelope domain")
+    elif auth.spf == "softfail":
+        add_finding(findings, 5, "SPF soft-failed")
+
+    if "fail" in auth.dkim:
+        add_finding(findings, 10, "DKIM signature failed verification")
+
+    if auth.dmarc != "fail" and not auth.aligned(from_domain):
+        add_finding(
+            findings,
+            15,
+            f"No SPF or DKIM pass aligned with the From domain {from_domain}",
+        )
 
 
 def check_sender_mismatch(email: EmailInvestigation, findings: list[Finding]) -> None:
@@ -193,29 +216,55 @@ def check_sender_mismatch(email: EmailInvestigation, findings: list[Finding]) ->
     reply_to_domain = extract_email_domain(email.reply_to)
     return_path_domain = extract_email_domain(email.return_path)
 
-    if from_domain and reply_to_domain and from_domain != reply_to_domain:
+    if (
+        from_domain
+        and reply_to_domain
+        and registered_domain(from_domain) != registered_domain(reply_to_domain)
+    ):
         add_finding(
             findings,
             20,
-            f"Reply-To domain differs from From domain: {reply_to_domain} != {from_domain}",
+            f"Replies go to a different domain: Reply-To {reply_to_domain}, From {from_domain}",
         )
 
-    if from_domain and return_path_domain and from_domain != return_path_domain:
+    # Mailing services (SendGrid, Mailchimp, Exclaimer) always use their own
+    # Return-Path. That only matters when nothing ties the mail to the From domain.
+    auth = parse_authentication_results(email.authentication_results)
+    verdict = email.microsoft_verdict
+    authenticated = auth.aligned(from_domain) or bool(verdict and verdict.compauth == "pass")
+
+    if (
+        from_domain
+        and return_path_domain
+        and registered_domain(from_domain) != registered_domain(return_path_domain)
+        and auth.present
+        and not authenticated
+    ):
         add_finding(
             findings,
-            15,
-            f"Return-Path domain differs from From domain: {return_path_domain} != {from_domain}",
+            10,
+            f"Envelope sender {return_path_domain} differs from From {from_domain}, and authentication did not tie them together",
         )
+
+
+MAX_KEYWORD_FINDINGS = 3
 
 
 def check_content_keywords(email: EmailInvestigation, findings: list[Finding]) -> None:
-    content = f"{email.subject} {email.text_body}".lower()
+    """Whole-word keyword matches in the subject and everything the reader sees.
+
+    Capped, because ordinary business mail uses these words all the time;
+    they add weight to other evidence but must not create a verdict alone.
+    """
+    content = f"{email.subject} {email.visible_text}".lower()
 
     matched_keywords = sorted(
-        keyword for keyword in SUSPICIOUS_KEYWORDS if keyword in content
+        keyword
+        for keyword in SUSPICIOUS_KEYWORDS
+        if re.search(rf"\b{re.escape(keyword)}\b", content)
     )
 
-    for keyword in matched_keywords[:5]:
+    for keyword in matched_keywords[:MAX_KEYWORD_FINDINGS]:
         add_finding(findings, 5, f"Suspicious keyword found: {keyword}")
 
 
@@ -237,9 +286,9 @@ def check_links(email: EmailInvestigation, findings: list[Finding]) -> None:
         if host.count(".") >= 4 and not opaque_wrapper(link):
             add_finding(findings, 10, f"Link has many subdomains: {host}")
 
-        link_text = link.lower()
-        for keyword in SUSPICIOUS_KEYWORDS:
-            if keyword in link_text:
+        link_words = set(re.split(r"[^a-z0-9]+", link.lower()))
+        for keyword in sorted(SUSPICIOUS_KEYWORDS):
+            if keyword in link_words:
                 add_finding(findings, 5, f"Suspicious link keyword found: {keyword}")
                 break
 

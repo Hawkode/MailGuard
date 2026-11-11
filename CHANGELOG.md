@@ -23,6 +23,7 @@ Detection now covers the lures seen in real Exchange Online triage, and false po
 
 ### Security
 - Terminal output strips control characters and escapes formatting in attacker-controlled text.
+- Links are defanged in the terminal report so they cannot be opened by clicking. JSON keeps the originals.
 
 ### Removed
 - Committed `__pycache__` files.

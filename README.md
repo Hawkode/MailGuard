@@ -95,10 +95,10 @@ Findings:
 - (+25) Link text shows www.royalmail.com but the link goes to parcel-redeliver.example.web.app
 
 Links found: 1
-1  https://parcel-redeliver.example.web.app/pay
+1  hxxps://parcel-redeliver[.]example[.]web[.]app/pay
 
 Unwrapped links: 1
-- Microsoft Safe Links > https://parcel-redeliver.example.web.app/pay
+- Microsoft Safe Links > hxxps://parcel-redeliver[.]example[.]web[.]app/pay
 ```
 
 ## Scoring
@@ -119,6 +119,7 @@ The score ranks emails by how much evidence they carry. It is not a calibrated p
 - **Attachments are never opened or extracted.** MailGuard hashes them, reads their first bytes, and reads the ZIP directory only.
 - **Only the topmost Authentication-Results and Microsoft headers are trusted.** The receiving server adds those. Copies lower in the message can be planted by the sender.
 - **Terminal output is sanitised.** Subjects, names, links and file names are attacker-controlled. Control characters and formatting codes are removed before printing, so a hostile subject line cannot hide or rewrite part of the report.
+- **Links are defanged in the terminal** (`hxxps://evil[.]example/pay`), so a terminal cannot open them on click. The JSON report keeps the original links for tools that need them.
 - **Real email stays local.** `samples/`, `datasets/`, `reports/` and `.env` are git-ignored. Test emails in `tests/fixtures/` are synthetic and use reserved `.example` domains.
 
 ## Limitations

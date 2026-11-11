@@ -18,9 +18,23 @@ console = Console()
 CONTROL_CHARACTERS = re.compile(r"[\x00-\x08\x0b-\x1f\x7f-\x9f]")
 
 
+URL_IN_TEXT = re.compile(r"\b(https?)://([^\s/?#]+)", re.IGNORECASE)
+
+
+def defang(text: str) -> str:
+    """hxxps://evil[.]example/path: readable, but terminals will not open it on click."""
+    def _replace(match: re.Match) -> str:
+        scheme = match.group(1).lower().replace("tt", "xx")
+        host = match.group(2).replace(".", "[.]")
+        return f"{scheme}://{host}"
+
+    return URL_IN_TEXT.sub(_replace, text)
+
+
 def safe(value) -> str:
-    """Make attacker-controlled text safe to print: no control codes, no rich markup."""
-    return escape(CONTROL_CHARACTERS.sub("?", str(value)))
+    """Make attacker-controlled text safe to print: no control codes, no rich
+    markup, and no clickable links."""
+    return escape(defang(CONTROL_CHARACTERS.sub("?", str(value))))
 
 
 def print_microsoft_verdict(result: EmailInvestigation) -> None:

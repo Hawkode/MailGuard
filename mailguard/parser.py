@@ -8,6 +8,7 @@ from bs4 import BeautifulSoup
 from mailguard.headers import ReceivedIP, extract_received_ips
 from mailguard.links import extract_bare_links, has_copy_paste_instruction
 from mailguard.unwrap import UnwrappedLink, unwrap_url
+from mailguard.msverdict import MicrosoftVerdict, read_microsoft_verdict
 from urllib.parse import urlparse
 import hashlib
 import re
@@ -50,6 +51,7 @@ class EmailInvestigation:
     copy_paste_instruction: bool
     wrapped_links: list[UnwrappedLink]
     link_texts: list[LinkText]
+    microsoft_verdict: MicrosoftVerdict | None
 
 
 def parse_eml(file_path: str | Path) -> EmailInvestigation:
@@ -123,6 +125,7 @@ def parse_eml(file_path: str | Path) -> EmailInvestigation:
         copy_paste_instruction=has_copy_paste_instruction(visible_text),
         wrapped_links=wrapped_links,
         link_texts=link_texts,
+        microsoft_verdict=read_microsoft_verdict(message),
     )
 
 

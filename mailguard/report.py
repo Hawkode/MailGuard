@@ -5,8 +5,40 @@ from rich.table import Table
 
 from mailguard.parser import EmailInvestigation
 from mailguard.scoring import assess_email
+from mailguard.msverdict import describe_compauth_reason
 
 console = Console()
+
+
+def print_microsoft_verdict(result: EmailInvestigation) -> None:
+    verdict = result.microsoft_verdict
+    console.print()
+
+    if verdict is None:
+        console.print(
+            "[bold]Microsoft verdict:[/bold] none found "
+            "(not delivered through Microsoft 365, or the headers were not included)"
+        )
+        return
+
+    table = Table(title="Microsoft verdict (Exchange Online Protection)")
+    table.add_column("Field")
+    table.add_column("Value")
+    table.add_column("Meaning")
+
+    table.add_row("CAT", verdict.category or "-", verdict.category_name or "-")
+    table.add_row("SFV", verdict.sfv or "-", verdict.sfv_meaning or "-")
+    table.add_row(
+        "compauth",
+        f"{verdict.compauth or '-'} {verdict.compauth_reason}".strip(),
+        describe_compauth_reason(verdict.compauth_reason) or "-",
+    )
+    table.add_row("SFTY", verdict.sfty or "-", verdict.sfty_meaning or "-")
+    table.add_row("SCL", verdict.scl or "-", "Context only: does not decide the action in Microsoft 365")
+    table.add_row("BCL", "-" if verdict.bcl is None else str(verdict.bcl), "Bulk complaint level, 0 to 9")
+    table.add_row("CIP / CTRY", f"{verdict.connecting_ip or '-'} / {verdict.country or '-'}", "Connecting IP and its country")
+
+    console.print(table)
 
 
 def print_basic_report(result: EmailInvestigation) -> None:
@@ -16,6 +48,8 @@ def print_basic_report(result: EmailInvestigation) -> None:
 
     console.print(f"[bold]Risk score:[/bold] {assessment.score}/100")
     console.print(f"[bold]Verdict:[/bold] {assessment.verdict}")
+
+    print_microsoft_verdict(result)
 
     console.print()
     console.print(f"[bold]Subject:[/bold] {result.subject or 'N/A'}")

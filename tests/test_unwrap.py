@@ -74,3 +74,4 @@ def test_parcel_lure_judged_on_real_target():
     assert email.links == ["https://parcel-redeliver.example.web.app/pay"]
     assert "safelinks" not in messages
     assert "goes to parcel-redeliver.example.web.app" in messages
+    assert "composite authentication failed (reason 001)" in messages

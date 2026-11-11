@@ -1,6 +1,6 @@
 Return-Path: <bounce@mailout.example.net>
 Received: from mailout.example.net (mailout.example.net [198.51.100.23]) by mx.contoso.example; Mon, 14 Dec 2026 08:01:00 +0000
-Authentication-Results: mx.contoso.example; spf=pass smtp.mailfrom=mailout.example.net; dkim=none; dmarc=none header.from=parcel-delivery-uk.example; compauth=fail reason=601
+Authentication-Results: mx.contoso.example; spf=pass smtp.mailfrom=mailout.example.net; dkim=none; dmarc=none header.from=parcel-delivery-uk.example; compauth=fail reason=001
 From: "Royal Mail" <noreply@parcel-delivery-uk.example>
 To: staff@contoso.example
 Subject: Your parcel is waiting - 1.45 GBP redelivery fee

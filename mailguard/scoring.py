@@ -10,6 +10,7 @@ import re
 
 from mailguard.links import extract_bare_links, registered_domain
 from mailguard.unwrap import is_open_redirect, opaque_wrapper
+from mailguard.msverdict import CATEGORY_POINTS, describe_compauth_reason
 from mailguard.parser import EmailInvestigation
 
 
@@ -97,6 +98,7 @@ class RiskAssessment:
 def assess_email(email: EmailInvestigation) -> RiskAssessment:
     findings: list[Finding] = []
 
+    check_microsoft_verdict(email, findings)
     check_authentication(email, findings)
     check_sender_mismatch(email, findings)
     check_content_keywords(email, findings)
@@ -120,6 +122,51 @@ def classify_score(score: int) -> str:
 
 def add_finding(findings: list[Finding], points: int, message: str) -> None:
     findings.append(Finding(points=points, message=message))
+
+
+def check_microsoft_verdict(email: EmailInvestigation, findings: list[Finding]) -> None:
+    verdict = email.microsoft_verdict
+    if verdict is None:
+        return
+
+    points = CATEGORY_POINTS.get(verdict.category, 0)
+    if points:
+        add_finding(
+            findings,
+            points,
+            f"Microsoft verdict: {verdict.category_name} (CAT:{verdict.category})",
+        )
+
+    if verdict.sfty in {"9.19", "9.20"}:
+        add_finding(findings, 30, f"Microsoft safety tip: {verdict.sfty_meaning}")
+    elif verdict.sfty == "9.25":
+        add_finding(findings, 10, f"Microsoft safety tip: {verdict.sfty_meaning}")
+
+    if verdict.sfv == "SKB":
+        add_finding(findings, 20, f"Microsoft filter: {verdict.sfv_meaning}")
+    elif verdict.sfv == "BLK":
+        add_finding(findings, 10, f"Microsoft filter: {verdict.sfv_meaning}")
+    elif verdict.filtering_bypassed:
+        # No points: an allow list is not evidence of phishing. It does mean
+        # Microsoft never judged the message, which an attacker can exploit.
+        add_finding(
+            findings,
+            0,
+            f"Microsoft filter skipped, so there is no Microsoft verdict: {verdict.sfv_meaning}",
+        )
+
+    if verdict.compauth == "fail":
+        meaning = describe_compauth_reason(verdict.compauth_reason)
+        add_finding(
+            findings,
+            20,
+            f"Microsoft composite authentication failed (reason {verdict.compauth_reason}): {meaning}".rstrip(": "),
+        )
+    elif verdict.compauth == "softpass":
+        add_finding(findings, 5, "Microsoft composite authentication only soft-passed")
+
+    if verdict.bcl is not None and verdict.bcl >= 8:
+        add_finding(findings, 5, f"Bulk sender with a high number of complaints (BCL {verdict.bcl})")
 
 
 def check_authentication(email: EmailInvestigation, findings: list[Finding]) -> None:

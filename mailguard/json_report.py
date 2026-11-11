@@ -24,6 +24,7 @@ def build_json_report(email: EmailInvestigation, source_file: str | Path | None 
             "date": email.date,
             "message_id": email.message_id,
         },
+        "microsoft_verdict": build_verdict_json(email),
         "authentication_results": email.authentication_results,
         "received_headers": email.received_headers,
         "received_ips": [
@@ -70,6 +71,29 @@ def build_json_report(email: EmailInvestigation, source_file: str | Path | None 
             "attachments_found": len(email.attachments),
             "findings_found": len(assessment.findings),
         },
+    }
+
+
+def build_verdict_json(email: EmailInvestigation) -> dict | None:
+    verdict = email.microsoft_verdict
+    if verdict is None:
+        return None
+
+    return {
+        "category": verdict.category,
+        "category_name": verdict.category_name,
+        "sfv": verdict.sfv,
+        "sfv_meaning": verdict.sfv_meaning,
+        "compauth": verdict.compauth,
+        "compauth_reason": verdict.compauth_reason,
+        "sfty": verdict.sfty,
+        "scl": verdict.scl,
+        "bcl": verdict.bcl,
+        "bulk": verdict.bulk,
+        "direction": verdict.direction,
+        "connecting_ip": verdict.connecting_ip,
+        "country": verdict.country,
+        "filtering_bypassed": verdict.filtering_bypassed,
     }
 
 

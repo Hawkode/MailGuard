@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from email import policy
 from email.parser import BytesParser
 from pathlib import Path
@@ -23,6 +23,8 @@ class AttachmentInfo:
     content_type: str
     size_bytes: int
     sha256: str
+    inline: bool = False
+    payload: bytes = field(default=b"", repr=False)
 
 @dataclass
 class LinkText:
@@ -73,14 +75,26 @@ def parse_eml(file_path: str | Path) -> EmailInvestigation:
         content_disposition = part.get_content_disposition()
         content_type = part.get_content_type()
 
-        if content_disposition == "attachment":
+        if part.is_multipart():
+            continue
+
+        filename = part.get_filename()
+        # Inline parts with a file name (logos, embedded files) are files too.
+        # Without this, a file sent as 'inline' was never listed or checked.
+        is_file = content_disposition == "attachment" or (
+            filename and content_type not in {"text/plain", "text/html"}
+        )
+
+        if is_file:
             payload = part.get_payload(decode=True) or b""
             attachments.append(
                 AttachmentInfo(
-                    filename=part.get_filename() or "unknown",
+                    filename=filename or "unknown",
                     content_type=content_type,
                     size_bytes=len(payload),
                     sha256=hashlib.sha256(payload).hexdigest(),
+                    inline=content_disposition != "attachment",
+                    payload=payload,
                 )
             )
             continue

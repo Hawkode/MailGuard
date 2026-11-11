@@ -8,6 +8,7 @@ import ipaddress
 import re
 
 
+from mailguard.attachments import assess_attachment, mentions_missing_attachment
 from mailguard.auth import parse_authentication_results
 from mailguard.links import extract_bare_links, registered_domain
 from mailguard.unwrap import is_open_redirect, opaque_wrapper
@@ -31,24 +32,6 @@ SUSPICIOUS_KEYWORDS = {
     "limited",
     "gift card",
     "crypto",
-}
-
-
-RISKY_ATTACHMENT_EXTENSIONS = {
-    ".exe",
-    ".scr",
-    ".js",
-    ".vbs",
-    ".bat",
-    ".cmd",
-    ".ps1",
-    ".hta",
-    ".lnk",
-    ".iso",
-    ".img",
-    ".html",
-    ".docm",
-    ".xlsm",
 }
 
 
@@ -371,16 +354,16 @@ def host_shown_in_text(text: str) -> str:
 
 def check_attachments(email: EmailInvestigation, findings: list[Finding]) -> None:
     for attachment in email.attachments:
-        extension = Path(attachment.filename).suffix.lower()
+        for risk in assess_attachment(attachment.filename, attachment.payload, attachment.inline):
+            add_finding(findings, risk.points, risk.message)
 
-        if extension in RISKY_ATTACHMENT_EXTENSIONS:
-            add_finding(
-                findings,
-                30,
-                f"Risky attachment type found: {attachment.filename}",
-            )
-        elif attachment.filename != "unknown":
-            add_finding(findings, 5, f"Attachment found: {attachment.filename}")
+    has_real_attachment = any(not a.inline for a in email.attachments)
+    if mentions_missing_attachment(email.visible_text, has_real_attachment):
+        add_finding(
+            findings,
+            10,
+            "Mentions an attached document, but nothing is attached: the link is the real payload",
+        )
 
 
 def check_message_id(email: EmailInvestigation, findings: list[Finding]) -> None:

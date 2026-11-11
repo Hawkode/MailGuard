@@ -10,6 +10,7 @@ import re
 
 from mailguard.attachments import assess_attachment, mentions_missing_attachment
 from mailguard.auth import parse_authentication_results
+from mailguard.brands import address_in_display_name, claimed_brand
 from mailguard.links import extract_bare_links, registered_domain
 from mailguard.unwrap import is_open_redirect, opaque_wrapper
 from mailguard.msverdict import CATEGORY_POINTS, describe_compauth_reason
@@ -85,6 +86,7 @@ def assess_email(email: EmailInvestigation) -> RiskAssessment:
     check_microsoft_verdict(email, findings)
     check_authentication(email, findings)
     check_sender_mismatch(email, findings)
+    check_display_name(email, findings)
     check_content_keywords(email, findings)
     check_links(email, findings)
     check_attachments(email, findings)
@@ -227,6 +229,30 @@ def check_sender_mismatch(email: EmailInvestigation, findings: list[Finding]) ->
             findings,
             10,
             f"Envelope sender {return_path_domain} differs from From {from_domain}, and authentication did not tie them together",
+        )
+
+
+def check_display_name(email: EmailInvestigation, findings: list[Finding]) -> None:
+    display_name, _ = parseaddr(email.from_address)
+    sender_domain = extract_email_domain(email.from_address)
+    if not display_name or not sender_domain:
+        return
+
+    brand = claimed_brand(display_name, sender_domain)
+    if brand:
+        add_finding(
+            findings,
+            30,
+            f"Display name claims {brand}, but the email comes from {sender_domain}. "
+            f"If this is a genuine {brand} domain, add it to mailguard/brands.py",
+        )
+
+    shown_address = address_in_display_name(display_name, sender_domain)
+    if shown_address:
+        add_finding(
+            findings,
+            25,
+            f"Display name shows the address {shown_address}, but the real sender is at {sender_domain}",
         )
 
 

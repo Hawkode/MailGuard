@@ -42,6 +42,18 @@ def build_json_report(email: EmailInvestigation, source_file: str | Path | None 
         ],
         "links": email.links,
         "bare_links": email.bare_links,
+        "wrapped_links": [
+            {
+                "original": wrapped.original,
+                "target": wrapped.target,
+                "wrappers": wrapped.wrappers,
+            }
+            for wrapped in email.wrapped_links
+        ],
+        "link_texts": [
+            {"text": pair.text, "target": pair.target}
+            for pair in email.link_texts
+        ],
         "copy_paste_instruction": email.copy_paste_instruction,
         "attachments": [
             {

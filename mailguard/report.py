@@ -59,6 +59,12 @@ def print_basic_report(result: EmailInvestigation) -> None:
 
         console.print(link_table)
 
+    if result.wrapped_links:
+        console.print()
+        console.print(f"[bold]Unwrapped links:[/bold] {len(result.wrapped_links)}")
+        for wrapped in result.wrapped_links:
+            console.print(f"- {' > '.join(wrapped.wrappers)} > {wrapped.target}")
+
     if result.bare_links:
         console.print()
         console.print(f"[bold]Links without http(s)://:[/bold] {len(result.bare_links)}")

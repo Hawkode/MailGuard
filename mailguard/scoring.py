@@ -5,9 +5,11 @@ from email.utils import parseaddr
 from pathlib import Path
 from urllib.parse import urlparse
 import ipaddress
+import re
 
 
-from mailguard.links import registered_domain
+from mailguard.links import extract_bare_links, registered_domain
+from mailguard.unwrap import is_open_redirect, opaque_wrapper
 from mailguard.parser import EmailInvestigation
 
 
@@ -57,6 +59,25 @@ URL_SHORTENERS = {
     "buff.ly",
     "rebrand.ly",
     "cutt.ly",
+}
+
+
+# Click-tracking services used by legitimate newsletters. Their links never
+# match the visible text, so a text/target mismatch says nothing on its own.
+CLICK_TRACKING_DOMAINS = {
+    "sendgrid.net",
+    "list-manage.com",
+    "mcsv.net",
+    "hubspotlinks.com",
+    "hs-sites.com",
+    "mailgun.org",
+    "sparkpostmail.com",
+    "rs6.net",
+    "exct.net",
+    "mandrillapp.com",
+    "cmail19.com",
+    "cmail20.com",
+    "createsend1.com",
 }
 
 
@@ -165,7 +186,8 @@ def check_links(email: EmailInvestigation, findings: list[Finding]) -> None:
         if host.lower() in URL_SHORTENERS:
             add_finding(findings, 15, f"URL shortener found: {host}")
 
-        if host.count(".") >= 4:
+        # Mimecast tokens cannot be decoded offline; its own hostnames are not a signal.
+        if host.count(".") >= 4 and not opaque_wrapper(link):
             add_finding(findings, 10, f"Link has many subdomains: {host}")
 
         link_text = link.lower()
@@ -173,6 +195,17 @@ def check_links(email: EmailInvestigation, findings: list[Finding]) -> None:
             if keyword in link_text:
                 add_finding(findings, 5, f"Suspicious link keyword found: {keyword}")
                 break
+
+    for wrapped in email.wrapped_links:
+        redirects = [name for name in wrapped.wrappers if is_open_redirect(name)]
+        if redirects:
+            add_finding(
+                findings,
+                10,
+                f"Link hidden behind {redirects[0]}, real target: {wrapped.target}",
+            )
+
+    check_link_text_mismatch(email, findings)
 
     sender_domain = registered_domain(extract_email_domain(email.from_address))
 
@@ -195,6 +228,49 @@ def check_links(email: EmailInvestigation, findings: list[Finding]) -> None:
             15,
             "Asks the reader to copy and paste a link into the browser",
         )
+
+
+def check_link_text_mismatch(email: EmailInvestigation, findings: list[Finding]) -> None:
+    """Flag links whose visible text shows one domain but which go to another."""
+    reported: set[tuple[str, str]] = set()
+
+    for pair in email.link_texts:
+        target = urlparse(pair.target)
+        if target.scheme not in {"http", "https"}:
+            continue
+
+        shown_host = host_shown_in_text(pair.text)
+        if not shown_host:
+            continue
+
+        shown = registered_domain(shown_host)
+        real = registered_domain(target.hostname or "")
+
+        if not real or shown == real or real in CLICK_TRACKING_DOMAINS:
+            continue
+
+        if (shown, real) in reported:
+            continue
+        reported.add((shown, real))
+
+        add_finding(
+            findings,
+            25,
+            f"Link text shows {shown_host} but the link goes to {target.hostname}",
+        )
+
+
+def host_shown_in_text(text: str) -> str:
+    """Hostname a reader would see in link text, if the text looks like a link."""
+    url_match = re.search(r"https?://[^\s\"'<>]+", text, re.IGNORECASE)
+    if url_match:
+        return (urlparse(url_match.group(0)).hostname or "").lower()
+
+    bare = extract_bare_links(text)
+    if bare:
+        return bare[0].split("/", 1)[0]
+
+    return ""
 
 
 def check_attachments(email: EmailInvestigation, findings: list[Finding]) -> None:

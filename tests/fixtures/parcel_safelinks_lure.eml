@@ -1,0 +1,14 @@
+Return-Path: <bounce@mailout.example.net>
+Received: from mailout.example.net (mailout.example.net [198.51.100.23]) by mx.contoso.example; Mon, 14 Dec 2026 08:01:00 +0000
+Authentication-Results: mx.contoso.example; spf=pass smtp.mailfrom=mailout.example.net; dkim=none; dmarc=none header.from=parcel-delivery-uk.example; compauth=fail reason=601
+From: "Royal Mail" <noreply@parcel-delivery-uk.example>
+To: staff@contoso.example
+Subject: Your parcel is waiting - 1.45 GBP redelivery fee
+Date: Mon, 14 Dec 2026 08:01:00 +0000
+Message-ID: <parcel-001@mailout.example.net>
+MIME-Version: 1.0
+Content-Type: text/html; charset="UTF-8"
+
+<html><body><p>We tried to deliver your Christmas parcel. Pay the redelivery fee to rebook.</p>
+<a href="https://eur02.safelinks.protection.outlook.com/?url=https%3A%2F%2Fparcel-redeliver.example.web.app%2Fpay&amp;data=05%7C02&amp;reserved=0">https://www.royalmail.com/track</a>
+</body></html>

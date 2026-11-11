@@ -7,6 +7,7 @@ from pathlib import Path
 from bs4 import BeautifulSoup
 from mailguard.headers import ReceivedIP, extract_received_ips
 from mailguard.links import extract_bare_links, has_copy_paste_instruction
+from mailguard.unwrap import UnwrappedLink, unwrap_url
 from urllib.parse import urlparse
 import hashlib
 import re
@@ -21,6 +22,13 @@ class AttachmentInfo:
     content_type: str
     size_bytes: int
     sha256: str
+
+@dataclass
+class LinkText:
+    """Text a reader sees on a clickable link, and where it really goes."""
+    text: str
+    target: str
+
 
 @dataclass
 class EmailInvestigation:
@@ -40,6 +48,8 @@ class EmailInvestigation:
     bare_links: list[str]
     visible_text: str
     copy_paste_instruction: bool
+    wrapped_links: list[UnwrappedLink]
+    link_texts: list[LinkText]
 
 
 def parse_eml(file_path: str | Path) -> EmailInvestigation:
@@ -82,7 +92,11 @@ def parse_eml(file_path: str | Path) -> EmailInvestigation:
     text_body = "\n".join(text_parts).strip()
     html_body = "\n".join(html_parts).strip()
 
-    links = extract_links(text_body, html_body)
+    raw_links = extract_links(text_body, html_body)
+    unwrapped = [unwrap_url(link) for link in raw_links]
+    links = sorted({item.target for item in unwrapped})
+    wrapped_links = [item for item in unwrapped if item.wrappers]
+    link_texts = extract_link_texts(html_body)
     visible_text = build_visible_text(text_body, html_body)
     known_hosts = {urlparse(link).hostname or "" for link in links}
     bare_links = extract_bare_links(
@@ -107,6 +121,8 @@ def parse_eml(file_path: str | Path) -> EmailInvestigation:
         bare_links=bare_links,
         visible_text=visible_text,
         copy_paste_instruction=has_copy_paste_instruction(visible_text),
+        wrapped_links=wrapped_links,
+        link_texts=link_texts,
     )
 
 
@@ -147,6 +163,21 @@ def extract_links(text_body: str, html_body: str) -> list[str]:
             links.add(clean_url(tag["src"]))
 
     return sorted(links)
+
+
+def extract_link_texts(html_body: str) -> list[LinkText]:
+    if not html_body:
+        return []
+
+    soup = BeautifulSoup(html_body, "html.parser")
+    pairs: list[LinkText] = []
+
+    for tag in soup.find_all("a", href=True):
+        text = re.sub(r"\s+", " ", tag.get_text(" ")).strip()
+        if text:
+            pairs.append(LinkText(text=text, target=unwrap_url(clean_url(tag["href"])).target))
+
+    return pairs
 
 
 def build_visible_text(

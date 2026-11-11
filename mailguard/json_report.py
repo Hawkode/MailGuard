@@ -41,6 +41,8 @@ def build_json_report(email: EmailInvestigation, source_file: str | Path | None 
             for finding in assessment.findings
         ],
         "links": email.links,
+        "bare_links": email.bare_links,
+        "copy_paste_instruction": email.copy_paste_instruction,
         "attachments": [
             {
                 "filename": attachment.filename,
@@ -52,6 +54,7 @@ def build_json_report(email: EmailInvestigation, source_file: str | Path | None 
         ],
         "summary": {
             "links_found": len(email.links),
+            "bare_links_found": len(email.bare_links),
             "attachments_found": len(email.attachments),
             "findings_found": len(assessment.findings),
         },

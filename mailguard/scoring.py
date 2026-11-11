@@ -7,6 +7,7 @@ from urllib.parse import urlparse
 import ipaddress
 
 
+from mailguard.links import registered_domain
 from mailguard.parser import EmailInvestigation
 
 
@@ -172,6 +173,28 @@ def check_links(email: EmailInvestigation, findings: list[Finding]) -> None:
             if keyword in link_text:
                 add_finding(findings, 5, f"Suspicious link keyword found: {keyword}")
                 break
+
+    sender_domain = registered_domain(extract_email_domain(email.from_address))
+
+    for bare_link in email.bare_links:
+        bare_host = bare_link.split("/", 1)[0]
+
+        # The sender's own website in a signature is normal, not a lure.
+        if sender_domain and registered_domain(bare_host) == sender_domain:
+            continue
+
+        add_finding(
+            findings,
+            25,
+            f"Link written without http(s)://, so it is not clickable or scanned: {bare_link}",
+        )
+
+    if email.copy_paste_instruction:
+        add_finding(
+            findings,
+            15,
+            "Asks the reader to copy and paste a link into the browser",
+        )
 
 
 def check_attachments(email: EmailInvestigation, findings: list[Finding]) -> None:

@@ -59,6 +59,12 @@ def print_basic_report(result: EmailInvestigation) -> None:
 
         console.print(link_table)
 
+    if result.bare_links:
+        console.print()
+        console.print(f"[bold]Links without http(s)://:[/bold] {len(result.bare_links)}")
+        for bare_link in result.bare_links:
+            console.print(f"- {bare_link}")
+
     console.print()
     console.print(f"[bold]Attachments found:[/bold] {len(result.attachments)}")
 

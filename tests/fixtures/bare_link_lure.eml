@@ -1,0 +1,25 @@
+Return-Path: <r.jones@supplier.example>
+Received: from relay.supplier.example (relay.supplier.example [198.51.100.40]) by mx.contoso.example; Fri, 6 Nov 2026 12:30:00 +0000
+Authentication-Results: mx.contoso.example; spf=pass smtp.mailfrom=supplier.example; dkim=pass header.d=supplier.example; dmarc=pass action=none header.from=supplier.example; compauth=pass reason=100
+From: Rob Jones <r.jones@supplier.example>
+Subject: Re: PO 48213 site scaffolding
+Date: Fri, 6 Nov 2026 12:30:00 +0000
+Message-ID: <lure-001@supplier.example>
+MIME-Version: 1.0
+Content-Type: multipart/related; boundary="B"
+
+--B
+Content-Type: text/plain; charset="UTF-8"
+
+Hi, please see the attached document. If the link does not open, copy and paste this into your browser:
+orderdocs-48213.uc.r.appspot.com
+
+Kind regards
+Rob Jones | www.supplier.example
+--B
+Content-Type: image/png
+Content-Disposition: inline; filename="logo.png"
+Content-ID: <logo>
+
+iVBORw0KGgo=
+--B--

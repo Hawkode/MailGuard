@@ -6,6 +6,8 @@ from email.parser import BytesParser
 from pathlib import Path
 from bs4 import BeautifulSoup
 from mailguard.headers import ReceivedIP, extract_received_ips
+from mailguard.links import extract_bare_links, has_copy_paste_instruction
+from urllib.parse import urlparse
 import hashlib
 import re
 
@@ -35,6 +37,9 @@ class EmailInvestigation:
     html_body: str
     links: list[str]
     attachments: list[AttachmentInfo]
+    bare_links: list[str]
+    visible_text: str
+    copy_paste_instruction: bool
 
 
 def parse_eml(file_path: str | Path) -> EmailInvestigation:
@@ -78,6 +83,12 @@ def parse_eml(file_path: str | Path) -> EmailInvestigation:
     html_body = "\n".join(html_parts).strip()
 
     links = extract_links(text_body, html_body)
+    visible_text = build_visible_text(text_body, html_body)
+    known_hosts = {urlparse(link).hostname or "" for link in links}
+    bare_links = extract_bare_links(
+        build_visible_text(text_body, html_body, drop_link_text=True),
+        known_hosts,
+    )
 
     return EmailInvestigation(
         subject=message.get("subject", ""),
@@ -93,6 +104,9 @@ def parse_eml(file_path: str | Path) -> EmailInvestigation:
         html_body=html_body,
         links=links,
         attachments=attachments,
+        bare_links=bare_links,
+        visible_text=visible_text,
+        copy_paste_instruction=has_copy_paste_instruction(visible_text),
     )
 
 
@@ -133,6 +147,26 @@ def extract_links(text_body: str, html_body: str) -> list[str]:
             links.add(clean_url(tag["src"]))
 
     return sorted(links)
+
+
+def build_visible_text(
+    text_body: str, html_body: str, drop_link_text: bool = False
+) -> str:
+    """Plain text plus the text a reader sees in the HTML part.
+
+    drop_link_text removes the text of <a> tags. That text is clickable,
+    so it is not a bare link even when it looks like a domain.
+    """
+    parts = [text_body]
+
+    if html_body:
+        soup = BeautifulSoup(html_body, "html.parser")
+        unwanted = ["script", "style", "a"] if drop_link_text else ["script", "style"]
+        for tag in soup(unwanted):
+            tag.decompose()
+        parts.append(soup.get_text(" "))
+
+    return re.sub(r"\s+", " ", " ".join(parts)).strip()
 
 
 def clean_url(url: str) -> str:

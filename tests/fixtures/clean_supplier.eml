@@ -1,0 +1,14 @@
+Return-Path: <jo@vendor.example>
+Received: from mail.vendor.example (mail.vendor.example [198.51.100.10]) by mx.contoso.example; Tue, 10 Nov 2026 10:00:00 +0000
+Authentication-Results: mx.contoso.example; spf=pass smtp.mailfrom=vendor.example; dkim=pass header.d=vendor.example; dmarc=pass action=none header.from=vendor.example; compauth=pass reason=100
+X-Forefront-Antispam-Report: CIP:198.51.100.10;CTRY:GB;LANG:en;SCL:1;SRV:;IPV:NLI;SFV:NSPM;CAT:NONE;DIR:INB;
+X-Microsoft-Antispam: BCL:0;
+From: Jo Bloggs <jo@vendor.example>
+To: alex@contoso.example
+Subject: Meeting notes from Tuesday
+Date: Tue, 10 Nov 2026 10:00:00 +0000
+Message-ID: <clean-001@vendor.example>
+Content-Type: text/plain
+
+Hi Alex, notes from Tuesday are below. Speak soon.
+Kind regards, Jo | Vendor Ltd | www.vendor.example

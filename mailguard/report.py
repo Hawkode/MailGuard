@@ -1,6 +1,9 @@
 from __future__ import annotations
 
+import re
+
 from rich.console import Console
+from rich.markup import escape
 from rich.table import Table
 
 from mailguard.parser import EmailInvestigation
@@ -8,6 +11,16 @@ from mailguard.scoring import assess_email
 from mailguard.msverdict import describe_compauth_reason
 
 console = Console()
+
+# C0/C1 control characters and the escape character. Email headers, file
+# names and links are attacker-controlled: an ANSI escape sequence in a
+# subject line could recolour, hide or rewrite what the analyst sees.
+CONTROL_CHARACTERS = re.compile(r"[\x00-\x08\x0b-\x1f\x7f-\x9f]")
+
+
+def safe(value) -> str:
+    """Make attacker-controlled text safe to print: no control codes, no rich markup."""
+    return escape(CONTROL_CHARACTERS.sub("?", str(value)))
 
 
 def print_microsoft_verdict(result: EmailInvestigation) -> None:
@@ -26,17 +39,17 @@ def print_microsoft_verdict(result: EmailInvestigation) -> None:
     table.add_column("Value")
     table.add_column("Meaning")
 
-    table.add_row("CAT", verdict.category or "-", verdict.category_name or "-")
-    table.add_row("SFV", verdict.sfv or "-", verdict.sfv_meaning or "-")
+    table.add_row("CAT", safe(verdict.category or "-"), safe(verdict.category_name or "-"))
+    table.add_row("SFV", safe(verdict.sfv or "-"), safe(verdict.sfv_meaning or "-"))
     table.add_row(
         "compauth",
         f"{verdict.compauth or '-'} {verdict.compauth_reason}".strip(),
         describe_compauth_reason(verdict.compauth_reason) or "-",
     )
-    table.add_row("SFTY", verdict.sfty or "-", verdict.sfty_meaning or "-")
-    table.add_row("SCL", verdict.scl or "-", "Context only: does not decide the action in Microsoft 365")
+    table.add_row("SFTY", safe(verdict.sfty or "-"), safe(verdict.sfty_meaning or "-"))
+    table.add_row("SCL", safe(verdict.scl or "-"), "Context only: does not decide the action in Microsoft 365")
     table.add_row("BCL", "-" if verdict.bcl is None else str(verdict.bcl), "Bulk complaint level, 0 to 9")
-    table.add_row("CIP / CTRY", f"{verdict.connecting_ip or '-'} / {verdict.country or '-'}", "Connecting IP and its country")
+    table.add_row("CIP / CTRY", safe(f"{verdict.connecting_ip or '-'} / {verdict.country or '-'}"), "Connecting IP and its country")
 
     console.print(table)
 
@@ -52,12 +65,12 @@ def print_basic_report(result: EmailInvestigation) -> None:
     print_microsoft_verdict(result)
 
     console.print()
-    console.print(f"[bold]Subject:[/bold] {result.subject or 'N/A'}")
-    console.print(f"[bold]From:[/bold] {result.from_address or 'N/A'}")
-    console.print(f"[bold]Reply-To:[/bold] {result.reply_to or 'N/A'}")
-    console.print(f"[bold]Return-Path:[/bold] {result.return_path or 'N/A'}")
-    console.print(f"[bold]Date:[/bold] {result.date or 'N/A'}")
-    console.print(f"[bold]Message-ID:[/bold] {result.message_id or 'N/A'}")
+    console.print(f"[bold]Subject:[/bold] {safe(result.subject or 'N/A')}")
+    console.print(f"[bold]From:[/bold] {safe(result.from_address or 'N/A')}")
+    console.print(f"[bold]Reply-To:[/bold] {safe(result.reply_to or 'N/A')}")
+    console.print(f"[bold]Return-Path:[/bold] {safe(result.return_path or 'N/A')}")
+    console.print(f"[bold]Date:[/bold] {safe(result.date or 'N/A')}")
+    console.print(f"[bold]Message-ID:[/bold] {safe(result.message_id or 'N/A')}")
     console.print()
     console.print(f"[bold]Received header IPs:[/bold] {len(result.received_ips)}")
 
@@ -76,7 +89,7 @@ def print_basic_report(result: EmailInvestigation) -> None:
 
     if assessment.findings:
         for finding in assessment.findings:
-            console.print(f"- (+{finding.points}) {finding.message}")
+            console.print(f"- (+{finding.points}) {safe(finding.message)}")
     else:
         console.print("- No suspicious indicators found")
 
@@ -89,7 +102,7 @@ def print_basic_report(result: EmailInvestigation) -> None:
         link_table.add_column("URL")
 
         for index, link in enumerate(result.links, start=1):
-            link_table.add_row(str(index), link)
+            link_table.add_row(str(index), safe(link))
 
         console.print(link_table)
 
@@ -97,13 +110,13 @@ def print_basic_report(result: EmailInvestigation) -> None:
         console.print()
         console.print(f"[bold]Unwrapped links:[/bold] {len(result.wrapped_links)}")
         for wrapped in result.wrapped_links:
-            console.print(f"- {' > '.join(wrapped.wrappers)} > {wrapped.target}")
+            console.print(f"- {' > '.join(wrapped.wrappers)} > {safe(wrapped.target)}")
 
     if result.bare_links:
         console.print()
         console.print(f"[bold]Links without http(s)://:[/bold] {len(result.bare_links)}")
         for bare_link in result.bare_links:
-            console.print(f"- {bare_link}")
+            console.print(f"- {safe(bare_link)}")
 
     console.print()
     console.print(f"[bold]Attachments found:[/bold] {len(result.attachments)}")
@@ -117,8 +130,8 @@ def print_basic_report(result: EmailInvestigation) -> None:
 
         for attachment in result.attachments:
             attachment_table.add_row(
-                attachment.filename,
-                attachment.content_type,
+                safe(attachment.filename),
+                safe(attachment.content_type),
                 f"{attachment.size_bytes} bytes",
                 attachment.sha256,
             )

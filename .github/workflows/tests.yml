@@ -1,0 +1,35 @@
+name: tests
+
+on:
+  push:
+  pull_request:
+
+# Read-only token: the workflow only needs to check out code.
+permissions:
+  contents: read
+
+jobs:
+  pytest:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.10", "3.12", "3.13"]
+
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-python@v7
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: Install MailGuard with test dependencies
+        run: pip install -e ".[test]"
+
+      - name: Run tests
+        run: pytest -v
+
+      - name: CLI smoke run
+        run: |
+          mailguard --help
+          mailguard analyze examples/suspicious.eml

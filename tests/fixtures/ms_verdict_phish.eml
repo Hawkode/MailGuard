@@ -1,0 +1,14 @@
+Return-Path: <bounce@mailout.example.net>
+Received: from mailout.example.net (198.51.100.23) by mx.contoso.example; Mon, 14 Dec 2026 08:01:00 +0000
+Authentication-Results: spf=pass (sender IP is 198.51.100.23) smtp.mailfrom=mailout.example.net; dkim=none (message not signed) header.d=none;dmarc=none action=none header.from=parcel-delivery-uk.example;compauth=fail reason=001
+X-Forefront-Antispam-Report: CIP:198.51.100.23;CTRY:NL;LANG:en;SCL:5;SRV:;IPV:NLI;SFV:SPM;H:mailout.example.net;PTR:mailout.example.net;CAT:PHSH;SFTY:9.25;SFS:(13230040);DIR:INB;
+X-Microsoft-Antispam: BCL:0;ARA:13230040;
+X-MS-Exchange-Organization-SCL: 5
+From: "Royal Mail" <noreply@parcel-delivery-uk.example>
+To: staff@contoso.example
+Subject: Your parcel is waiting
+Date: Mon, 14 Dec 2026 08:01:00 +0000
+Message-ID: <ms-001@mailout.example.net>
+Content-Type: text/plain
+
+We tried to deliver your parcel.

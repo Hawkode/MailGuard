@@ -7,6 +7,14 @@ import re
 
 IPV4_PATTERN = re.compile(r"\b(?:\d{1,3}\.){3}\d{1,3}\b")
 
+# RFC 5737 ranges reserved for documentation and examples. Python treats
+# them as private, which mislabels the sample emails.
+DOCUMENTATION_NETWORKS = [
+    ipaddress.ip_network("192.0.2.0/24"),
+    ipaddress.ip_network("198.51.100.0/24"),
+    ipaddress.ip_network("203.0.113.0/24"),
+]
+
 
 @dataclass
 class ReceivedIP:
@@ -38,6 +46,9 @@ def extract_received_ips(received_headers: list[str]) -> list[ReceivedIP]:
 def classify_ip(ip: ipaddress.IPv4Address | ipaddress.IPv6Address) -> str:
     if ip.is_loopback:
         return "loopback"
+
+    if any(ip in network for network in DOCUMENTATION_NETWORKS):
+        return "documentation"
 
     if ip.is_private:
         return "private"

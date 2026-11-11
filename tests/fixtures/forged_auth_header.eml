@@ -1,0 +1,10 @@
+Authentication-Results: mx.contoso.example; spf=fail smtp.mailfrom=sender.example; dkim=none; dmarc=fail action=oreject header.from=bank.example
+Received: from sender.example ([192.0.2.9]) by mx.contoso.example
+Authentication-Results: mx.contoso.example; spf=pass smtp.mailfrom=bank.example; dkim=pass header.d=bank.example; dmarc=pass header.from=bank.example
+From: Bank Security <alerts@bank.example>
+To: alex@contoso.example
+Subject: Mailbox storage full
+Message-ID: <forged-001@sender.example>
+Content-Type: text/plain
+
+Your mailbox is full.

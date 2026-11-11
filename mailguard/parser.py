@@ -1,11 +1,15 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from email import policy
 from email.parser import BytesParser
 from pathlib import Path
 from bs4 import BeautifulSoup
 from mailguard.headers import ReceivedIP, extract_received_ips
+from mailguard.links import extract_bare_links, has_copy_paste_instruction
+from mailguard.unwrap import UnwrappedLink, unwrap_url
+from mailguard.msverdict import MicrosoftVerdict, read_microsoft_verdict
+from urllib.parse import urlparse
 import hashlib
 import re
 
@@ -19,6 +23,15 @@ class AttachmentInfo:
     content_type: str
     size_bytes: int
     sha256: str
+    inline: bool = False
+    payload: bytes = field(default=b"", repr=False)
+
+@dataclass
+class LinkText:
+    """Text a reader sees on a clickable link, and where it really goes."""
+    text: str
+    target: str
+
 
 @dataclass
 class EmailInvestigation:
@@ -35,6 +48,12 @@ class EmailInvestigation:
     html_body: str
     links: list[str]
     attachments: list[AttachmentInfo]
+    bare_links: list[str]
+    visible_text: str
+    copy_paste_instruction: bool
+    wrapped_links: list[UnwrappedLink]
+    link_texts: list[LinkText]
+    microsoft_verdict: MicrosoftVerdict | None
 
 
 def parse_eml(file_path: str | Path) -> EmailInvestigation:
@@ -56,14 +75,26 @@ def parse_eml(file_path: str | Path) -> EmailInvestigation:
         content_disposition = part.get_content_disposition()
         content_type = part.get_content_type()
 
-        if content_disposition == "attachment":
+        if part.is_multipart():
+            continue
+
+        filename = part.get_filename()
+        # Inline parts with a file name (logos, embedded files) are files too.
+        # Without this, a file sent as 'inline' was never listed or checked.
+        is_file = content_disposition == "attachment" or (
+            filename and content_type not in {"text/plain", "text/html"}
+        )
+
+        if is_file:
             payload = part.get_payload(decode=True) or b""
             attachments.append(
                 AttachmentInfo(
-                    filename=part.get_filename() or "unknown",
+                    filename=filename or "unknown",
                     content_type=content_type,
                     size_bytes=len(payload),
                     sha256=hashlib.sha256(payload).hexdigest(),
+                    inline=content_disposition != "attachment",
+                    payload=payload,
                 )
             )
             continue
@@ -77,7 +108,17 @@ def parse_eml(file_path: str | Path) -> EmailInvestigation:
     text_body = "\n".join(text_parts).strip()
     html_body = "\n".join(html_parts).strip()
 
-    links = extract_links(text_body, html_body)
+    raw_links = extract_links(text_body, html_body)
+    unwrapped = [unwrap_url(link) for link in raw_links]
+    links = sorted({item.target for item in unwrapped})
+    wrapped_links = [item for item in unwrapped if item.wrappers]
+    link_texts = extract_link_texts(html_body)
+    visible_text = build_visible_text(text_body, html_body)
+    known_hosts = {urlparse(link).hostname or "" for link in links}
+    bare_links = extract_bare_links(
+        build_visible_text(text_body, html_body, drop_link_text=True),
+        known_hosts,
+    )
 
     return EmailInvestigation(
         subject=message.get("subject", ""),
@@ -93,6 +134,12 @@ def parse_eml(file_path: str | Path) -> EmailInvestigation:
         html_body=html_body,
         links=links,
         attachments=attachments,
+        bare_links=bare_links,
+        visible_text=visible_text,
+        copy_paste_instruction=has_copy_paste_instruction(visible_text),
+        wrapped_links=wrapped_links,
+        link_texts=link_texts,
+        microsoft_verdict=read_microsoft_verdict(message),
     )
 
 
@@ -133,6 +180,41 @@ def extract_links(text_body: str, html_body: str) -> list[str]:
             links.add(clean_url(tag["src"]))
 
     return sorted(links)
+
+
+def extract_link_texts(html_body: str) -> list[LinkText]:
+    if not html_body:
+        return []
+
+    soup = BeautifulSoup(html_body, "html.parser")
+    pairs: list[LinkText] = []
+
+    for tag in soup.find_all("a", href=True):
+        text = re.sub(r"\s+", " ", tag.get_text(" ")).strip()
+        if text:
+            pairs.append(LinkText(text=text, target=unwrap_url(clean_url(tag["href"])).target))
+
+    return pairs
+
+
+def build_visible_text(
+    text_body: str, html_body: str, drop_link_text: bool = False
+) -> str:
+    """Plain text plus the text a reader sees in the HTML part.
+
+    drop_link_text removes the text of <a> tags. That text is clickable,
+    so it is not a bare link even when it looks like a domain.
+    """
+    parts = [text_body]
+
+    if html_body:
+        soup = BeautifulSoup(html_body, "html.parser")
+        unwanted = ["script", "style", "a"] if drop_link_text else ["script", "style"]
+        for tag in soup(unwanted):
+            tag.decompose()
+        parts.append(soup.get_text(" "))
+
+    return re.sub(r"\s+", " ", " ".join(parts)).strip()
 
 
 def clean_url(url: str) -> str:

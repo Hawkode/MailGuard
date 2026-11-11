@@ -1,273 +1,171 @@
 # MailGuard
 
-About the tool
+Phishing triage CLI for suspicious email files. MailGuard reads an `.eml` file and explains why it looks suspicious: Microsoft's own verdict, SPF/DKIM/DMARC alignment, links, attachments and sender identity, each with a score and a plain-English reason.
 
-MailGuard is a defensive email investigation CLI for analysing suspicious email files.
+It never opens a link, runs or extracts an attachment, or sends email content anywhere. Everything happens on your machine.
 
-It extracts useful details from email headers, links, HTML content, attachments, authentication results, and Received headers. It also gives a risk score to help with manual phishing triage.
+**Status: complete (v0.2.0).** MailGuard is a lab and portfolio tool. It works alongside Microsoft Defender for Office 365, not instead of it: Defender gives the verdict, MailGuard shows the evidence behind it and the gaps it can miss.
 
-The tool does not open links, visit websites, download remote content, execute attachments, or upload email content anywhere.
+## What it checks
 
-Current features
+| Area | Checks |
+|---|---|
+| **Microsoft verdict** | `CAT`, `SFV`, `SFTY`, `SCL` and connecting IP from `X-Forefront-Antispam-Report`, `BCL` from `X-Microsoft-Antispam`, and `compauth` with its reason code, each translated into plain English. Flags messages where an allow list or mail flow rule skipped filtering. |
+| **Authentication** | SPF, DKIM and DMARC from the topmost `Authentication-Results` header, with relaxed alignment against the From domain. |
+| **Sender identity** | Display names that claim a brand the sending domain does not own (Royal Mail, HMRC, Microsoft, DocuSign, UK banks and others). Addresses shown in the display name. Reply-To going to another organisation. |
+| **Links** | Unwraps Microsoft Safe Links, Proofpoint URL Defense, Barracuda and Google redirects. Flags link text that shows one domain but goes to another, links written without `http(s)://` with "copy and paste this into your browser" wording, IP-address links, URL shorteners and plain HTTP. |
+| **Attachments** | Grades executables, HTML/SVG pages, disk images, OneNote, macro documents and archives. Flags double extensions, right-to-left override file names, and files whose content does not match their name. Reads the ZIP file list, without extracting, to find risky inner files and password-protected archives. Flags emails that mention an attachment when none is attached. |
+| **Content** | Whole-word keyword matches in the subject and visible text, capped so they support other evidence but never decide a verdict alone. |
 
-- Analyse a single email file
-- Scan a folder of email samples
-- Extract common email headers
-- Extract links from plain text and HTML
-- Detect image URLs inside HTML emails
-- List attachments
-- Generate SHA256 hashes for attachments
-- Extract IP addresses from Received headers
-- Check SPF, DKIM, and DMARC results when present
-- Detect Reply-To and Return-Path mismatches
-- Detect suspicious keywords
-- Generate terminal reports
-- Generate JSON reports
-- Skip files that do not look like emails during folder scans
+## Install
 
-# Installation
-
-Clone the repository:
+Windows (Command Prompt):
 
 ```cmd
 git clone https://github.com/Hawkode/MailGuard.git
 cd MailGuard
-```
-
-Create a virtual environment:
-
-```cmd
 py -m venv .venv
-```
-
-Activate it:
-
-```cmd
 .venv\Scripts\activate
-```
-
-Install the project:
-
-```cmd
-pip install -e .
-```
-
-Install test dependencies:
-
-```cmd
-pip install pytest
-```
-
-Check the CLI:
-
-```cmd
+pip install -e ".[test]"
 mailguard --help
 ```
 
-# Usage
+Linux or macOS:
 
-Analyse one email file:
-
-```cmd
-mailguard analyze examples\suspicious.eml
+```bash
+git clone https://github.com/Hawkode/MailGuard.git
+cd MailGuard
+python3 -m venv .venv
+source .venv/bin/activate
+pip install -e ".[test]"
+mailguard --help
 ```
 
-Alternative command:
+Requires Python 3.10 or later.
+
+## Usage
+
+### 1. Get the email source
+
+- **Outlook on the web or new Outlook:** open the message, select **...** > **View** > **View message source**, copy everything, and paste it into a text file named `message.eml`.
+- **Microsoft Defender:** with Defender for Office 365 Plan 2, Threat Explorer lets admins with the right role download the original message.
+- **Classic Outlook:** **File** > **Properties** > **Internet headers** gives the headers only. MailGuard still checks the Microsoft verdict, authentication and sender identity, but cannot check links or attachments.
+
+Save real emails in the `samples\` folder. It is git-ignored, so they cannot be committed by accident.
+
+### 2. Analyse it
 
 ```cmd
-.venv\Scripts\python.exe -m mailguard.cli analyze examples\suspicious.eml
+mailguard analyze samples\message.eml
 ```
 
-Create a JSON report:
+Save a JSON report as well:
 
 ```cmd
-mailguard analyze examples\suspicious.eml --json report.json
-```
-
-Alternative JSON command:
-
-```cmd
-.venv\Scripts\python.exe -m mailguard.cli analyze examples\suspicious.eml --json report.json
+mailguard analyze samples\message.eml --json reports\message.json
 ```
 
 Scan a folder:
 
 ```cmd
-mailguard scan-folder samples\spam\spam
+mailguard scan-folder samples
 ```
 
-Alternative folder scan command:
+## Example
 
-```cmd
-.venv\Scripts\python.exe -m mailguard.cli scan-folder samples\spam\spam
-```
-
-Example single email output
+A Royal Mail redelivery lure, delivered through Exchange Online with its link wrapped by Safe Links (`tests/fixtures/parcel_safelinks_lure.eml`):
 
 ```text
 MailGuard Investigation Report
 
-Risk score: 100/100
+Risk score: 85/100
 Verdict: High risk
 
-Subject: Urgent invoice payment update
-From: Antonio Cesare <giulio.cesare@example.co.uk>
-Reply-To: Antonio Finance <antonio.cesare.finance@example.com>
-Return-Path: <bounce@random-mailer.example>
-Date: Thu, 02 Jul 2026 10:14:30 +0000
-Message-ID: <123456789@random-mailer.example>
+Microsoft verdict (Exchange Online Protection)
+Field      Value     Meaning
+compauth   fail 001  No usable SPF, DKIM or DMARC, or only a weak policy
 
-Received header IPs: 1
-
-Received Header IPs
-
-IP address      Scope
-203.0.113.50    private
+Subject: Your parcel is waiting - 1.45 GBP redelivery fee
+From: Royal Mail <noreply@parcel-delivery-uk.example>
 
 Findings:
-- (+20) SPF failed
-- (+15) DKIM missing
-- (+25) DMARC failed
-- (+20) Reply-To domain differs from From domain: example.com != example.co.uk
-- (+15) Return-Path domain differs from From domain: random-mailer.example != example.co.uk
-- (+5) Suspicious keyword found: invoice
-- (+5) Suspicious keyword found: login
-- (+5) Suspicious keyword found: payment
-- (+5) Suspicious keyword found: reset
-- (+5) Suspicious keyword found: urgent
-- (+5) Suspicious link keyword found: reset
-- (+5) Attachment found: invoice.pdf
+- (+20) Microsoft composite authentication failed (reason 001): No usable SPF, DKIM or DMARC, or only a weak policy
+- (+10) Envelope sender mailout.example.net differs from From parcel-delivery-uk.example, and authentication did not tie them together
+- (+30) Display name claims Royal Mail, but the email comes from parcel-delivery-uk.example
+- (+25) Link text shows www.royalmail.com but the link goes to parcel-redeliver.example.web.app
 
-Links found: 2
+Links found: 1
+1  hxxps://parcel-redeliver[.]example[.]web[.]app/pay
 
-Extracted Links
-
-1  https://example-payments.example-login.com/reset
-2  https://tracking.example.com/open/12345.png
-
-Attachments found: 1
-
-Attachments
-
-Filename     Content type       Size      SHA256
-invoice.pdf  application/pdf    36 bytes  c51521e1bbbb827b40a051a05322f4d5cd2f0defea65925e0b1ab34ca32eb4f5
+Unwrapped links: 1
+- Microsoft Safe Links > hxxps://parcel-redeliver[.]example[.]web[.]app/pay
 ```
 
-Example JSON report
+## Scoring
 
-```json
-{
-  "source_file": "examples\\suspicious.eml",
-  "risk": {
-    "score": 100,
-    "verdict": "High risk"
-  },
-  "headers": {
-    "subject": "Urgent invoice payment update",
-    "from": "Antonio Cesare <giulio.cesare@example.co.uk>",
-    "reply_to": "Antonio Finance <antonio.cesare.finance@example.com>",
-    "return_path": "<bounce@random-mailer.example>",
-    "date": "Thu, 02 Jul 2026 10:14:30 +0000",
-    "message_id": "<123456789@random-mailer.example>"
-  },
-  "received_ips": [
-    {
-      "address": "203.0.113.50",
-      "scope": "private"
-    }
-  ],
-  "links": [
-    "https://example-payments.example-login.com/reset",
-    "https://tracking.example.com/open/12345.png"
-  ],
-  "attachments": [
-    {
-      "filename": "invoice.pdf",
-      "content_type": "application/pdf",
-      "size_bytes": 36,
-      "sha256": "c51521e1bbbb827b40a051a05322f4d5cd2f0defea65925e0b1ab34ca32eb4f5"
-    }
-  ]
-}
-```
+Each finding adds points, capped at 100:
 
-Example folder scan output
+| Score | Verdict | Meaning |
+|---|---|---|
+| 0 to 30 | Low risk | No strong indicators |
+| 31 to 65 | Suspicious | Needs a person to look at it |
+| 66 to 100 | High risk | Several strong indicators, or Microsoft already flagged it |
 
-```text
-MailGuard Folder Scan Summary
+The score ranks emails by how much evidence they carry. It is not a calibrated probability.
 
-Scanned: 499
-High risk: 120
-Suspicious: 230
-Low risk: 149
-Skipped: 1
-Errors: 0
-```
+## Safety design
 
-# Testing
+- **No network access.** Links are decoded from their text, never visited. No lookups are made.
+- **Attachments are never opened or extracted.** MailGuard hashes them, reads their first bytes, and reads the ZIP directory only.
+- **Only the topmost Authentication-Results and Microsoft headers are trusted.** The receiving server adds those. Copies lower in the message can be planted by the sender.
+- **Terminal output is sanitised.** Subjects, names, links and file names are attacker-controlled. Control characters and formatting codes are removed before printing, so a hostile subject line cannot hide or rewrite part of the report.
+- **Links are defanged in the terminal** (`hxxps://evil[.]example/pay`), so a terminal cannot open them on click. The JSON report keeps the original links for tools that need them.
+- **Real email stays local.** `samples/`, `datasets/`, `reports/` and `.env` are git-ignored. Test emails in `tests/fixtures/` are synthetic and use reserved `.example` domains.
 
-Run tests:
+## Limitations
+
+- **No reputation lookups.** MailGuard does not query VirusTotal, URLhaus or similar services. Their free APIs restrict commercial and business use, so lookups are left to the analyst and the organisation's licensed tools.
+- **A compromised real account that passes every check scores Suspicious at most.** The signals left are behavioural (plain-text links, "see attached" with no attachment), and a person has to confirm.
+- **No QR code decoding** and **no Outlook `.msg` files.**
+- **Mimecast links** use an encrypted token and cannot be decoded offline. They are recognised but not judged.
+- **Top-level domains and brand domains are curated lists**, not a full public suffix list. A genuine brand email from a domain not on the list is flagged, and the finding says how to add it.
+- **mbox files:** only the first message is read.
+
+## Testing
 
 ```cmd
-.venv\Scripts\python.exe -m pytest
+pytest -v
 ```
 
-Local files
+The suite includes a regression table (`tests/test_regression.py`) with the expected verdict for every fixture, so a scoring change that moves one fails the build. GitHub Actions runs the tests and a CLI smoke check on Python 3.10, 3.12 and 3.13 for every push and pull request.
 
-The repository does not include virtual environments, cache files, generated reports, or downloaded datasets.
-
-Ignored local paths:
-
-```text
-.venv/
-.pytest_cache/
-__pycache__/
-mailguard.egg-info/
-datasets/
-samples/
-reports/
-report.json
-```
-
-The repository includes one synthetic sample email:
-
-```text
-examples/suspicious.eml
-```
-
-Do not commit real emails, private reports, API keys, personal data, or downloaded phishing/spam datasets.
-
-Project structure
+## Project structure
 
 ```text
 MailGuard/
-├── examples/
-│   └── suspicious.eml
+├── .github/workflows/tests.yml   CI: tests and CLI smoke run
+├── examples/suspicious.eml       Synthetic sample for the README
 ├── mailguard/
-│   ├── __init__.py
-│   ├── cli.py
-│   ├── folder_scan.py
-│   ├── headers.py
-│   ├── json_report.py
-│   ├── parser.py
-│   ├── report.py
-│   └── scoring.py
+│   ├── cli.py            Command-line interface (analyze, scan-folder)
+│   ├── parser.py         Reads the .eml: headers, bodies, links, attachments
+│   ├── msverdict.py      Microsoft verdict headers
+│   ├── auth.py           SPF, DKIM, DMARC and alignment
+│   ├── brands.py         Brand impersonation in display names
+│   ├── links.py          Links written without http(s)://
+│   ├── unwrap.py         Safe Links, Proofpoint, Barracuda, Google redirects
+│   ├── attachments.py    Attachment type, disguise and content checks
+│   ├── headers.py        Received header IPs
+│   ├── scoring.py        Findings and risk score
+│   ├── report.py         Terminal report
+│   ├── json_report.py    JSON report
+│   └── folder_scan.py    Folder scan
 ├── tests/
-│   └── test_parser.py
-├── .gitignore
-├── README.md
+│   ├── fixtures/         Synthetic test emails
+│   └── test_*.py
+├── CHANGELOG.md
 └── pyproject.toml
 ```
 
-# Next improvements
+## Disclaimer
 
-- Markdown report output
-- CSV output for folder scans
-- Better URL scoring
-- Configurable rules
-- GitHub Actions test workflow
-- Optional reputation API checks
-
-# Disclaimer
-
-MailGuard highlights indicators that may help with manual email investigation. It does not prove that an email is safe or malicious.
+MailGuard highlights indicators to support manual investigation. It does not prove that an email is safe or malicious.
